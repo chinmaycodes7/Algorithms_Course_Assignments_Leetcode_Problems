@@ -1,0 +1,143 @@
+import pandas as pd
+import math as m
+from collections import deque
+import os
+
+# Read the input excel file
+df = pd.read_excel("/home/student/Downloads/How_To_Execute/input_Make Groups.xlsx")
+
+n = int(input("Please enter the number of groups: "))
+group_size = (len(df) // n)
+print("Group size (approx):", group_size)
+
+# Create folders for saving files
+OUT_BASE = "/home/student/Downloads/How_To_Execute/full_groups"
+BRANCHWISE_DIR = os.path.join(OUT_BASE, "full_branchwise_groups")
+MIXED_DIR = os.path.join(OUT_BASE, "mixed_groups")
+UNIFORM_DIR = os.path.join(OUT_BASE, "uniform_groups")
+
+os.makedirs(BRANCHWISE_DIR, exist_ok=True)
+os.makedirs(MIXED_DIR, exist_ok=True)
+os.makedirs(UNIFORM_DIR, exist_ok=True)
+
+
+################## BRANCHWISE GROUPS ##################
+
+
+
+# Extract the branches from the dataset
+df["Branch"] = df["Roll"].str[4:6]
+
+# Prepare branchwise deques
+branch_data = {}
+for branch, group in df.groupby("Branch"):
+    g = group[["Name", "Email", "Roll"]]
+    # Save branchwise CSV
+    g.to_csv(f"{BRANCHWISE_DIR}/{branch}.csv", index=False)
+    # Create deque of student dictionaries
+    branch_data[branch] = deque(g.to_dict("records"))
+
+# Initialize empty groups
+groups = [[] for _ in range(n)]
+
+# Sort the dictionary based on the number of elements in the deque
+sorted_branch_data = dict(
+    sorted(branch_data.items(), key=lambda item: len(item[1]), reverse=True)
+)
+
+
+# Stats function
+def get_group_stats(groups, group_type):
+    stats = []
+    for i, group in enumerate(groups, start=1):
+        df_group = pd.DataFrame(group)
+        branch_counts = df_group["Roll"].str[4:6].value_counts().to_dict()
+
+        total = len(df_group)
+        row = {
+            "Group": f"{group_type}_{i}",
+            "Total Students": total
+        }
+
+        # Add branchwise counts
+        for branch, count in branch_counts.items():
+            row[f"{branch}_count"] = count
+            row[f"{branch}_percent"] = round((count / total) * 100, 2) if total > 0 else 0
+
+        stats.append(row)
+
+    return pd.DataFrame(stats)
+
+
+
+
+################## MIXED GROUPS ##################
+
+
+
+mixed_list=[]
+# while at least one branch still has students
+while any(branch_data.values()):
+    for branch in sorted_branch_data.keys():
+      b=sorted_branch_data[branch]
+      if b:
+          student = b.popleft()
+          mixed_list.append(student)
+
+# Dividing the list into smaller lists
+for i in range(n-1):
+  groups[i]=mixed_list[group_size*i:group_size*(i+1)]
+
+# The last set of entries
+groups[n-1]=mixed_list[group_size*(n-1):]
+
+# Convert groups to DataFrames and save
+for i, group in enumerate(groups, start=1):
+    gdf = pd.DataFrame(group)
+    gdf.to_csv(f"{MIXED_DIR}/group_{i}.csv", index=False)
+
+mixed_stats = get_group_stats(groups, "Mixed")
+mixed_stats.to_csv(f"{MIXED_DIR}/mixed_groups_stats.csv", index=False)
+
+
+
+################## UNIFORM GROUPS ##################
+
+
+# Initialise groups
+uniform_groups = [[] for _ in range(n)]
+
+# Prepare branchwise deques
+branch_data = {}
+for branch, group in df.groupby("Branch"):
+    g = group[["Name", "Email", "Roll"]]
+
+    # Create deque of student dicts
+    branch_data[branch] = deque(g.to_dict("records"))
+
+# Sort the dictionary based on the number of elements in the deque
+sorted_branch_data = dict(
+    sorted(branch_data.items(), key=lambda item: len(item[1]), reverse=True)
+)
+
+uniform_list=[]
+# add all the students to the uniform list
+for i in sorted_branch_data.values():
+  for j in i:
+    uniform_list.append(j)
+
+# Dividing the list into smaller lists
+for i in range(n-1):
+  uniform_groups[i]=uniform_list[group_size*i:group_size*(i+1)]
+uniform_groups[n-1]=uniform_list[group_size*(n-1):]
+
+# Convert groups to DataFrames and save
+for i, group in enumerate(uniform_groups, start=1):
+    gdf = pd.DataFrame(group)
+    gdf.to_csv(f"{UNIFORM_DIR}/group_{i}.csv", index=False)
+
+uniform_stats = get_group_stats(uniform_groups, "Uniform")
+uniform_stats.to_csv(f"{UNIFORM_DIR}/uniform_groups_stats.csv", index=False)
+
+print("All students were grouped successfully!")
+print("Please check the respective folders.")
