@@ -1,3 +1,0 @@
-The input excel file must be present.
-The following libraries need to be imported:
-pandas, math, deque (from collections)
