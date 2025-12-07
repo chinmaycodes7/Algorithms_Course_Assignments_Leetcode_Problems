@@ -1,0 +1,4 @@
+﻿An input file is needed to run the code.
+
+
+Some libraries need to be imported: pandas, math and deque.
